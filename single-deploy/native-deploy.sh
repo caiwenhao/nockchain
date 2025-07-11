@@ -129,7 +129,49 @@ install_rust() {
 # 克隆或更新项目
 setup_project() {
     log "设置项目目录..."
-    
+
+    # 获取脚本所在目录的上级目录（项目根目录）
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+    # 检查是否在项目目录中运行脚本
+    if [ -f "$PROJECT_ROOT/Makefile" ] && [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
+        log "检测到项目源码在: $PROJECT_ROOT"
+
+        # 如果安装目录就是项目根目录，直接使用
+        if [ "$PROJECT_ROOT" = "$INSTALL_DIR" ]; then
+            log "使用当前项目目录作为安装目录"
+            cd "$INSTALL_DIR"
+            return
+        fi
+
+        # 否则复制项目到安装目录
+        if [ -d "$INSTALL_DIR" ]; then
+            warn "项目目录已存在，是否要重新复制？(y/N)"
+            read -r response
+            if [[ "$response" =~ ^[Yy]$ ]]; then
+                rm -rf "$INSTALL_DIR"
+            else
+                cd "$INSTALL_DIR"
+                if [ -f "Makefile" ]; then
+                    log "使用现有项目目录"
+                    return
+                else
+                    warn "现有目录不包含项目文件，将重新复制"
+                    rm -rf "$INSTALL_DIR"
+                fi
+            fi
+        fi
+
+        log "复制项目源码到 $INSTALL_DIR..."
+        mkdir -p "$(dirname "$INSTALL_DIR")"
+        cp -r "$PROJECT_ROOT" "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
+        log "项目复制完成"
+        return
+    fi
+
+    # 传统的Git克隆方式
     if [ -d "$INSTALL_DIR" ]; then
         warn "项目目录已存在，是否要重新克隆？(y/N)"
         read -r response
@@ -141,7 +183,7 @@ setup_project() {
             return
         fi
     fi
-    
+
     # 这里需要替换为实际的仓库地址
     if [ -n "${REPO_URL:-}" ]; then
         git clone "$REPO_URL" "$INSTALL_DIR"
@@ -151,7 +193,7 @@ setup_project() {
         info "或者设置环境变量 REPO_URL 指向你的仓库"
         return
     fi
-    
+
     cd "$INSTALL_DIR"
     log "项目设置完成"
 }
@@ -186,19 +228,37 @@ ENVEOF
         fi
     fi
     
+    # 检查是否有Makefile
+    if [ ! -f "Makefile" ]; then
+        error "找不到 Makefile，请确保项目源码已正确复制"
+        error "当前目录: $(pwd)"
+        error "目录内容: $(ls -la)"
+        exit 1
+    fi
+
     # 构建项目
     log "开始编译，这可能需要几分钟..."
-    make build
-    
+    if ! make build; then
+        error "项目构建失败"
+        exit 1
+    fi
+
     # 安装组件
     log "安装 hoonc 编译器..."
-    make install-hoonc
-    
+    if ! make install-hoonc; then
+        warn "hoonc 安装失败，但继续安装其他组件"
+    fi
+
     log "安装 nockchain 主程序..."
-    make install-nockchain
-    
+    if ! make install-nockchain; then
+        error "nockchain 安装失败"
+        exit 1
+    fi
+
     log "安装 nockchain-wallet 钱包..."
-    make install-nockchain-wallet
+    if ! make install-nockchain-wallet; then
+        warn "nockchain-wallet 安装失败，但继续"
+    fi
     
     # 确保二进制文件在 PATH 中
     if ! command -v nockchain &> /dev/null; then
