@@ -159,13 +159,31 @@ setup_project() {
 # 构建项目
 build_project() {
     log "构建 Nockchain 项目..."
-    
+
     cd "$INSTALL_DIR"
-    
+
     # 复制环境配置
     if [ ! -f .env ]; then
-        cp .env_example .env
-        log "已创建 .env 配置文件"
+        if [ -f .env_example ]; then
+            cp .env_example .env
+            log "已创建 .env 配置文件"
+        else
+            # 如果当前目录没有 .env_example，尝试从脚本所在目录的上级目录复制
+            SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+            PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+            if [ -f "$PROJECT_ROOT/.env_example" ]; then
+                cp "$PROJECT_ROOT/.env_example" .env
+                log "从项目根目录复制了 .env 配置文件"
+            else
+                warn "找不到 .env_example 文件，创建默认配置..."
+                cat > .env << 'ENVEOF'
+RUST_LOG=info,nockchain=info,nockchain_libp2p_io=info,libp2p=info,libp2p_quic=info
+MINIMAL_LOG_FORMAT=true
+MINING_PUBKEY=2qwq9dQRZfpFx8BDicghpMRnYGKZsZGxxhh9m362pzpM9aeo276pR1yHZPS41y3CW3vPKxeYM8p8fzZS8GXmDGzmNNCnVNekjrSYogqfEFMqwhHh5iCjaKPaDTwhupWqiXj6
+ENVEOF
+                log "已创建默认 .env 配置文件"
+            fi
+        fi
     fi
     
     # 构建项目
