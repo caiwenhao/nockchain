@@ -43,10 +43,15 @@ check_system() {
         exit 1
     fi
     
-    # 检查权限
+    # 检查权限 - 允许root用户运行
     if [ "$EUID" -eq 0 ]; then
-        error "请不要使用 root 用户运行此脚本"
-        exit 1
+        warn "正在以 root 用户运行脚本"
+        warn "建议使用普通用户运行以提高安全性"
+        # 如果是root用户，调整安装目录到/opt
+        if [ "$INSTALL_DIR" = "$HOME/nockchain" ]; then
+            INSTALL_DIR="/opt/nockchain"
+            SERVICE_USER="root"
+        fi
     fi
     
     # 检查系统资源
