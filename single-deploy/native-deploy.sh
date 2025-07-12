@@ -408,7 +408,23 @@ echo "================================"
 mkdir -p logs
 
 # 启动挖矿
-nockchain --mining-pubkey "${MINING_PUBKEY}" --mine --num-threads $num_threads 2>&1 | tee logs/miner-$(date +%Y%m%d-%H%M%S).log
+# 尝试多个可能的 nockchain 路径
+NOCKCHAIN_BIN=""
+for path in "/usr/local/bin/nockchain" "$HOME/.cargo/bin/nockchain" "$(which nockchain 2>/dev/null)" "./target/release/nockchain"; do
+    if [ -x "$path" ]; then
+        NOCKCHAIN_BIN="$path"
+        break
+    fi
+done
+
+if [ -z "$NOCKCHAIN_BIN" ]; then
+    echo "错误: 找不到 nockchain 可执行文件"
+    echo "请确保 nockchain 已正确安装"
+    exit 1
+fi
+
+echo "使用 nockchain 路径: $NOCKCHAIN_BIN"
+"$NOCKCHAIN_BIN" --mining-pubkey "${MINING_PUBKEY}" --mine --num-threads $num_threads 2>&1 | tee logs/miner-$(date +%Y%m%d-%H%M%S).log
 EOF
 
     # 创建普通节点启动脚本
@@ -429,7 +445,23 @@ echo "================================"
 mkdir -p logs
 
 # 启动节点
-nockchain 2>&1 | tee logs/node-$(date +%Y%m%d-%H%M%S).log
+# 尝试多个可能的 nockchain 路径
+NOCKCHAIN_BIN=""
+for path in "/usr/local/bin/nockchain" "$HOME/.cargo/bin/nockchain" "$(which nockchain 2>/dev/null)" "./target/release/nockchain"; do
+    if [ -x "$path" ]; then
+        NOCKCHAIN_BIN="$path"
+        break
+    fi
+done
+
+if [ -z "$NOCKCHAIN_BIN" ]; then
+    echo "错误: 找不到 nockchain 可执行文件"
+    echo "请确保 nockchain 已正确安装"
+    exit 1
+fi
+
+echo "使用 nockchain 路径: $NOCKCHAIN_BIN"
+"$NOCKCHAIN_BIN" 2>&1 | tee logs/node-$(date +%Y%m%d-%H%M%S).log
 EOF
 
 
@@ -495,6 +527,8 @@ Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_USER
 WorkingDirectory=$INSTALL_DIR
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:$HOME/.cargo/bin
+Environment=HOME=$HOME
 ExecStart=$INSTALL_DIR/start-miner.sh
 Restart=always
 RestartSec=10
