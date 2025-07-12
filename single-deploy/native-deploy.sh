@@ -350,7 +350,7 @@ get_cpu_count() {
 }
 
 total_threads=$(get_cpu_count)
-num_threads=$((total_threads > 4 ? total_threads * 2 - 4 : total_threads))
+num_threads=$((total_threads > 4 ? total_threads - 4 : total_threads))
 
 echo "启动 Nockchain 挖矿节点..."
 echo "使用 $num_threads 个挖矿线程 (总CPU核心: $total_threads)"

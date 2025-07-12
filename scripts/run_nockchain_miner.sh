@@ -14,11 +14,11 @@ get_cpu_count() {
     fi
 }
 
-# Get total CPU hyperthreads
+# Get total CPU cores
 total_threads=$(get_cpu_count)
 
-# Subtract 4
-num_threads=$((total_threads * 2 - 4))
+# Use CPU cores minus 4
+num_threads=$((total_threads > 4 ? total_threads - 4 : total_threads))
 
 echo "Starting nockchain miner with $num_threads mining threads:"
 
