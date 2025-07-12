@@ -272,14 +272,34 @@ ENVEOF
 # 生成密钥
 generate_keys() {
     log "生成挖矿密钥..."
-    
+
+    # 检查安装目录是否存在
+    if [ ! -d "$INSTALL_DIR" ]; then
+        error "安装目录不存在: $INSTALL_DIR"
+        error "请先运行: $0 install"
+        exit 1
+    fi
+
     cd "$INSTALL_DIR"
-    
+
+    # 检查 nockchain-wallet 是否已安装
+    if ! command -v nockchain-wallet &> /dev/null; then
+        error "nockchain-wallet 未找到"
+        error "请先运行: $0 install"
+        exit 1
+    fi
+
     info "正在生成新的密钥对..."
-    nockchain-wallet keygen
-    
-    warn "请将上面显示的公钥复制到 .env 文件中的 MINING_PUBKEY 变量"
-    info "编辑命令: nano $INSTALL_DIR/.env"
+    if nockchain-wallet keygen; then
+        echo ""
+        warn "请将上面显示的公钥复制到 .env 文件中的 MINING_PUBKEY 变量"
+        info "编辑命令: nano $INSTALL_DIR/.env"
+        echo ""
+        info "完成后可以启动挖矿: $0 start"
+    else
+        error "密钥生成失败"
+        exit 1
+    fi
 }
 
 # 配置防火墙
@@ -536,22 +556,28 @@ main() {
             info "3. $0 start     # 启动挖矿服务"
             ;;
         keygen)
+            check_system  # 确保 INSTALL_DIR 被正确设置
             generate_keys
             ;;
         start)
+            check_system  # 确保 INSTALL_DIR 被正确设置
             start_mining
             ;;
         stop)
+            check_system  # 确保 INSTALL_DIR 被正确设置
             cd "$INSTALL_DIR"
             ./stop-miner.sh
             ;;
         status)
+            check_system  # 确保 INSTALL_DIR 被正确设置
             show_status
             ;;
         service)
+            check_system  # 确保 INSTALL_DIR 被正确设置
             create_service
             ;;
         logs)
+            check_system  # 确保 INSTALL_DIR 被正确设置
             cd "$INSTALL_DIR"
             if screen -list | grep -q nockchain-miner; then
                 screen -r nockchain-miner
