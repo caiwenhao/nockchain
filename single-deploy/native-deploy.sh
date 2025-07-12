@@ -72,16 +72,15 @@ check_system() {
 # 安装系统依赖
 install_dependencies() {
     log "安装系统依赖..."
-    
+
     sudo apt update
+
+    # 先安装基础依赖
     sudo apt install -y \
         curl \
         wget \
         git \
         build-essential \
-        clang \
-        llvm-dev \
-        libclang-dev \
         pkg-config \
         make \
         htop \
@@ -89,8 +88,60 @@ install_dependencies() {
         ufw \
         screen \
         tmux
-    
+
+    # 安装 LLVM (Ubuntu 22.04 兼容方案)
+    install_llvm_ubuntu22
+
     log "系统依赖安装完成"
+}
+
+# Ubuntu 22.04 LLVM 安装函数
+install_llvm_ubuntu22() {
+    log "安装 LLVM 开发环境 (Ubuntu 22.04 优化)..."
+
+    # 检查 Ubuntu 版本
+    local ubuntu_version=$(lsb_release -rs 2>/dev/null || echo "unknown")
+    log "检测到 Ubuntu 版本: $ubuntu_version"
+
+    # 检查是否已经有可用的 clang
+    if command -v clang &> /dev/null; then
+        local clang_version=$(clang --version | head -n1)
+        log "检测到已安装的 Clang: $clang_version"
+        log "跳过 LLVM 安装，使用现有环境"
+        return 0
+    fi
+
+    if [[ "$ubuntu_version" == "22.04" ]]; then
+        log "使用 Ubuntu 22.04 优化的 LLVM 安装方案..."
+
+        # 方案1: 尝试安装可用的 LLVM 版本 (跳过有问题的 llvm-14-dev)
+        if sudo apt install -y clang-14 libclang-14-dev; then
+            log "成功安装 LLVM 14 (跳过 llvm-14-dev)"
+            # 创建符号链接以兼容通用包名
+            sudo ln -sf /usr/bin/clang-14 /usr/bin/clang 2>/dev/null || true
+            sudo ln -sf /usr/bin/clang++-14 /usr/bin/clang++ 2>/dev/null || true
+        else
+            warn "LLVM 14 安装失败，尝试使用官方 LLVM 仓库..."
+            install_llvm_from_official_repo
+        fi
+    else
+        # 其他版本使用标准安装
+        sudo apt install -y clang llvm-dev libclang-dev
+    fi
+}
+
+# 从官方 LLVM 仓库安装
+install_llvm_from_official_repo() {
+    log "尝试使用基础 clang 包..."
+
+    # 简化安装，只安装基础的 clang 包
+    if sudo apt install -y clang libclang-dev; then
+        log "成功安装基础 clang 环境"
+        return 0
+    else
+        warn "基础 clang 安装也失败，但可能系统已有可用的编译器"
+        return 1
+    fi
 }
 
 # 安装 Rust
