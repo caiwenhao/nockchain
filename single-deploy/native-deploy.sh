@@ -544,54 +544,163 @@ echo ""
 if pgrep -f "nockchain.*--mine" > /dev/null; then
     echo "✓ 挖矿节点: 运行中"
     echo "  PID: $(pgrep -f 'nockchain.*--mine')"
+    echo "  运行时间: $(ps -o etime= -p $(pgrep -f 'nockchain.*--mine') 2>/dev/null | tr -d ' ' || echo '未知')"
 else
     echo "✗ 挖矿节点: 未运行"
 fi
 
-# 检查普通节点（不包含 --mine 参数的 nockchain 进程）
-nockchain_pids=$(pgrep -f "nockchain" 2>/dev/null || echo "")
-mining_pids=$(pgrep -f "nockchain.*--mine" 2>/dev/null || echo "")
+echo ""
+echo "=== 核心功能状态 ==="
 
-if [ -n "$nockchain_pids" ] && [ -n "$mining_pids" ]; then
-    # 有挖矿进程，检查是否还有其他 nockchain 进程
-    other_pids=$(echo "$nockchain_pids" | grep -v "$mining_pids" 2>/dev/null || echo "")
-    if [ -n "$other_pids" ]; then
-        echo "✓ 普通节点: 运行中"
+# 检查区块同步状态
+check_block_sync() {
+    if ls logs/miner-*.log 1> /dev/null 2>&1; then
+        latest_log=$(ls -t logs/miner-*.log 2>/dev/null | head -1)
+        if [ -n "$latest_log" ]; then
+            # 获取最新区块信息
+            latest_block=$(grep "added to validated blocks at" "$latest_log" | tail -1)
+            if [ -n "$latest_block" ]; then
+                block_height=$(echo "$latest_block" | grep -o "at [0-9]*" | grep -o "[0-9]*")
+                block_hash=$(echo "$latest_block" | awk '{print $4}')
+                block_time=$(echo "$latest_block" | awk '{print $2}' | tr -d '()')
+
+                # 检查最近是否有新区块（5分钟内）
+                recent_blocks=$(grep "added to validated blocks" "$latest_log" | tail -10)
+                if echo "$recent_blocks" | grep -q "$(date +%H:%M -d '5 minutes ago')\|$(date +%H:%M -d '4 minutes ago')\|$(date +%H:%M -d '3 minutes ago')\|$(date +%H:%M -d '2 minutes ago')\|$(date +%H:%M -d '1 minute ago')\|$(date +%H:%M)"; then
+                    echo "✓ 区块同步: 正常"
+                else
+                    echo "⚠ 区块同步: 可能延迟"
+                fi
+                echo "  当前高度: $block_height"
+                echo "  最新区块: ${block_hash:0:20}..."
+                echo "  同步时间: $block_time"
+            else
+                echo "✗ 区块同步: 无区块数据"
+            fi
+        else
+            echo "✗ 区块同步: 无日志文件"
+        fi
     else
-        echo "✗ 普通节点: 未运行"
+        echo "✗ 区块同步: 无日志文件"
     fi
-elif [ -n "$nockchain_pids" ] && [ -z "$mining_pids" ]; then
-    echo "✓ 普通节点: 运行中"
-else
-    echo "✗ 普通节点: 未运行"
-fi
+}
+
+# 检查挖矿活动
+check_mining_activity() {
+    if ls logs/miner-*.log 1> /dev/null 2>&1; then
+        latest_log=$(ls -t logs/miner-*.log 2>/dev/null | head -1)
+        if [ -n "$latest_log" ]; then
+            # 检查最近的挖矿活动
+            recent_mining=$(grep "%mining-on" "$latest_log" | tail -5)
+            if [ -n "$recent_mining" ]; then
+                mining_count=$(echo "$recent_mining" | wc -l)
+                last_mining=$(echo "$recent_mining" | tail -1 | awk '{print $2}' | tr -d '()')
+                echo "✓ 挖矿活动: 正常"
+                echo "  最近挖矿: $last_mining"
+                echo "  活动次数: $mining_count (最近5次)"
+            else
+                echo "✗ 挖矿活动: 无挖矿记录"
+            fi
+        else
+            echo "✗ 挖矿活动: 无日志文件"
+        fi
+    else
+        echo "✗ 挖矿活动: 无日志文件"
+    fi
+}
+
+# 检查网络连接
+check_network_status() {
+    if ls logs/miner-*.log 1> /dev/null 2>&1; then
+        latest_log=$(ls -t logs/miner-*.log 2>/dev/null | head -1)
+        if [ -n "$latest_log" ]; then
+            # 检查P2P连接
+            p2p_connections=$(netstat -an 2>/dev/null | grep :4001 | wc -l)
+
+            # 检查最近的网络活动
+            recent_network=$(grep -i "peer\|connection" "$latest_log" | tail -3)
+
+            if [ "$p2p_connections" -gt 0 ]; then
+                echo "✓ 网络连接: 正常"
+                echo "  P2P连接数: $p2p_connections"
+            else
+                echo "⚠ 网络连接: 连接较少"
+                echo "  P2P连接数: $p2p_connections"
+            fi
+
+            # 显示最近的网络活动
+            if [ -n "$recent_network" ]; then
+                echo "  最近活动: $(echo "$recent_network" | tail -1 | awk '{print $2}' | tr -d '()')"
+            fi
+        else
+            echo "✗ 网络连接: 无日志文件"
+        fi
+    else
+        echo "✗ 网络连接: 无日志文件"
+    fi
+}
+
+# 检查时间锁状态
+check_timelock_status() {
+    if ls logs/miner-*.log 1> /dev/null 2>&1; then
+        latest_log=$(ls -t logs/miner-*.log 2>/dev/null | head -1)
+        if [ -n "$latest_log" ]; then
+            # 检查最近的时间锁检查
+            recent_timelock=$(grep "timelock check" "$latest_log" | tail -5)
+            if [ -n "$recent_timelock" ]; then
+                failed_count=$(echo "$recent_timelock" | grep "failed" | wc -l)
+                last_timelock=$(echo "$recent_timelock" | tail -1 | awk '{print $2}' | tr -d '()')
+
+                if [ "$failed_count" -gt 0 ]; then
+                    echo "✓ 时间锁: 正常 (遵守网络规则)"
+                    echo "  最近检查: $last_timelock"
+                    echo "  失败次数: $failed_count (正常现象)"
+                else
+                    echo "⚠ 时间锁: 无失败记录"
+                    echo "  最近检查: $last_timelock"
+                fi
+            else
+                echo "⚠ 时间锁: 无检查记录"
+            fi
+        else
+            echo "✗ 时间锁: 无日志文件"
+        fi
+    else
+        echo "✗ 时间锁: 无日志文件"
+    fi
+}
+
+# 执行所有检查
+check_block_sync
+check_mining_activity
+check_network_status
+check_timelock_status
 
 echo ""
 echo "=== 系统资源 ==="
 echo "CPU 使用率: $(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1)%"
 echo "内存使用: $(free -h | grep Mem | awk '{print $3"/"$2}')"
 echo "磁盘使用: $(df -h / | tail -1 | awk '{print $5}')"
+echo "系统负载: $(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//')"
 
-echo ""
-echo "=== 网络连接 ==="
-echo "P2P 连接数: $(netstat -an 2>/dev/null | grep :4001 | wc -l)"
-
-# 日志行数参数（默认5行，可通过参数调整）
-LOG_LINES=${1:-5}
+# 日志行数参数（默认10行，可通过参数调整）
+LOG_LINES=${1:-10}
 
 echo ""
 echo "=== 最新日志 (最近${LOG_LINES}行) ==="
 if ls logs/miner-*.log 1> /dev/null 2>&1; then
     latest_log=$(ls -t logs/miner-*.log 2>/dev/null | head -1)
     if [ -n "$latest_log" ]; then
-        echo "文件: $latest_log"
-        echo "文件大小: $(du -h "$latest_log" | cut -f1)"
-        echo "最后修改: $(stat -c %y "$latest_log" 2>/dev/null || date -r "$latest_log" 2>/dev/null || echo "未知")"
+        echo "日志文件: $(basename "$latest_log")"
+        echo "文件大小: $(du -h "$latest_log" | cut -f1) | 最后修改: $(stat -c %y "$latest_log" 2>/dev/null | cut -d. -f1 || echo "未知")"
         echo "----------------------------------------"
         tail -${LOG_LINES} "$latest_log"
         echo "----------------------------------------"
-        echo "提示: 使用 ./check-status.sh 100 查看更多日志行"
-        echo "     使用 tail -f $latest_log 查看实时日志"
+        echo ""
+        echo "💡 更多操作:"
+        echo "   ./check-status.sh 100     # 查看更多日志"
+        echo "   tail -f $latest_log       # 实时日志"
+        echo "   ./quick-log-viewer.sh mining  # 查看挖矿日志"
     else
         echo "未找到日志文件"
     fi
