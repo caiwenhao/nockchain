@@ -514,6 +514,28 @@ EOF
     cat > check-status.sh << 'EOF'
 #!/bin/bash
 
+# Nockchain 节点状态检查脚本
+# 用法: ./check-status.sh [日志行数]
+# 示例: ./check-status.sh 100  # 显示最近100行日志
+
+# 显示帮助信息
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    echo "用法: $0 [日志行数]"
+    echo ""
+    echo "参数:"
+    echo "  日志行数    显示的日志行数 (默认: 5)"
+    echo ""
+    echo "示例:"
+    echo "  $0          # 显示最近5行日志"
+    echo "  $0 100      # 显示最近100行日志"
+    echo "  $0 1000     # 显示最近1000行日志"
+    echo ""
+    echo "其他有用命令:"
+    echo "  tail -f logs/miner-*.log    # 实时查看日志"
+    echo "  grep 'mining-on' logs/miner-*.log | tail -10    # 查看挖矿活动"
+    exit 0
+fi
+
 echo "=== Nockchain 节点状态 ==="
 echo "时间: $(date)"
 echo ""
@@ -554,18 +576,28 @@ echo ""
 echo "=== 网络连接 ==="
 echo "P2P 连接数: $(netstat -an 2>/dev/null | grep :4001 | wc -l)"
 
+# 日志行数参数（默认5行，可通过参数调整）
+LOG_LINES=${1:-5}
+
 echo ""
-echo "=== 最新日志 (最近5行) ==="
+echo "=== 最新日志 (最近${LOG_LINES}行) ==="
 if ls logs/miner-*.log 1> /dev/null 2>&1; then
     latest_log=$(ls -t logs/miner-*.log 2>/dev/null | head -1)
     if [ -n "$latest_log" ]; then
         echo "文件: $latest_log"
-        tail -5 "$latest_log"
+        echo "文件大小: $(du -h "$latest_log" | cut -f1)"
+        echo "最后修改: $(stat -c %y "$latest_log" 2>/dev/null || date -r "$latest_log" 2>/dev/null || echo "未知")"
+        echo "----------------------------------------"
+        tail -${LOG_LINES} "$latest_log"
+        echo "----------------------------------------"
+        echo "提示: 使用 ./check-status.sh 100 查看更多日志行"
+        echo "     使用 tail -f $latest_log 查看实时日志"
     else
         echo "未找到日志文件"
     fi
 else
     echo "未找到日志文件"
+    echo "提示: 请确保挖矿节点已启动并生成日志"
 fi
 EOF
 
