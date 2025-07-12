@@ -549,29 +549,7 @@ EOF
     info "查看日志: sudo journalctl -u nockchain-miner -f"
 }
 
-# 启动挖矿
-start_mining() {
-    log "启动挖矿节点..."
-    
-    cd "$INSTALL_DIR"
-    
-    # 检查是否设置了挖矿公钥
-    source .env
-    if [ -z "$MINING_PUBKEY" ] || [ "$MINING_PUBKEY" = "请在此处填入您的挖矿公钥" ]; then
-        error "请先设置挖矿公钥！"
-        info "1. 生成密钥: $0 keygen"
-        info "2. 编辑配置: nano $INSTALL_DIR/.env"
-        exit 1
-    fi
-    
-    # 启动挖矿
-    ./start-miner-daemon.sh
-    
-    log "挖矿节点已启动"
-    info "查看状态: ./check-status.sh"
-    info "查看日志: screen -r nockchain-miner"
-    info "停止挖矿: ./stop-miner.sh"
-}
+
 
 # 显示状态
 show_status() {
@@ -599,7 +577,8 @@ main() {
             info "安装完成！接下来请运行:"
             info "1. $0 keygen    # 生成挖矿密钥"
             info "2. nano $INSTALL_DIR/.env  # 编辑配置文件"
-            info "3. $0 start     # 启动挖矿服务"
+            info "3. cd $INSTALL_DIR && ./start-miner.sh  # 启动挖矿"
+            info "   或者: $0 service && sudo systemctl start nockchain-miner  # 系统服务方式"
             ;;
         install-skip-build)
             log "快速安装模式 (跳过编译)"
@@ -611,7 +590,8 @@ main() {
             info "快速安装完成！接下来请运行:"
             info "1. $0 keygen    # 生成挖矿密钥"
             info "2. nano $INSTALL_DIR/.env  # 编辑配置文件"
-            info "3. $0 start     # 启动挖矿服务"
+            info "3. cd $INSTALL_DIR && ./start-miner.sh  # 启动挖矿"
+            info "   或者: $0 service && sudo systemctl start nockchain-miner  # 系统服务方式"
             warn "注意: 此模式假设 Rust 环境和 nockchain 二进制文件已存在"
             ;;
         update-scripts)
@@ -625,10 +605,7 @@ main() {
             check_system  # 确保 INSTALL_DIR 被正确设置
             generate_keys
             ;;
-        start)
-            check_system  # 确保 INSTALL_DIR 被正确设置
-            start_mining
-            ;;
+
         stop)
             check_system  # 确保 INSTALL_DIR 被正确设置
             cd "$INSTALL_DIR"
@@ -663,19 +640,22 @@ main() {
             echo ""
             echo "管理命令:"
             echo "  keygen   - 生成挖矿密钥"
-            echo "  start    - 启动挖矿服务"
             echo "  stop     - 停止挖矿服务"
             echo "  status   - 查看服务状态"
             echo "  service  - 创建系统服务"
             echo "  logs     - 查看日志"
             echo "  help     - 显示此帮助信息"
             echo ""
+            echo "启动挖矿方式:"
+            echo "  方式1: cd $INSTALL_DIR && ./start-miner.sh"
+            echo "  方式2: sudo systemctl start nockchain-miner"
+            echo ""
             echo "使用场景:"
             echo "  首次部署:     $0 install"
             echo "  快速部署:     $0 install-skip-build"
             echo "  更新脚本:     $0 update-scripts"
             echo "  生成密钥:     $0 keygen"
-            echo "  启动挖矿:     $0 start"
+            echo "  启动挖矿:     cd $INSTALL_DIR && ./start-miner.sh"
             exit 1
             ;;
     esac

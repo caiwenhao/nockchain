@@ -41,14 +41,11 @@ VOLCANO_SECRET_KEY="your-secret-key"
 
 ### 第六步：启动挖矿
 ```bash
-# 方法1: 前台运行（测试用）
+# 方法1: 直接启动（推荐）
 cd ~/nockchain
 ./start-miner.sh
 
-# 方法2: 后台运行（推荐）
-./native-deploy.sh start
-
-# 方法3: 系统服务（生产环境）
+# 方法2: 系统服务（生产环境）
 ./native-deploy.sh service  # 创建系统服务
 sudo systemctl start nockchain-miner
 ```
@@ -200,7 +197,7 @@ netstat -an | grep :4001
 
 # 重启挖矿服务
 ./native-deploy.sh stop
-./native-deploy.sh start
+cd ~/nockchain && ./start-miner.sh
 ```
 
 ### 性能优化
@@ -340,7 +337,7 @@ make build
 make install-nockchain
 
 # 重启服务
-./native-deploy.sh start
+cd ~/nockchain && ./start-miner.sh
 ```
 
 ### Q: 火山云配置在哪里？
@@ -365,7 +362,7 @@ make install-nockchain
 > 注意：Nockchain是实验性软件，请谨慎使用于生产环境。
 
 # 5. 启动挖矿
-./native-deploy.sh start
+cd ~/nockchain && ./start-miner.sh
 
 # 6. 监控状态
 ./native-monitor.sh status
@@ -386,7 +383,7 @@ make install-nockchain
 
 # 4. 在每个服务器上部署
 scp -r single-deploy/ user@server1:~/
-ssh user@server1 "cd single-deploy && ./native-deploy.sh install && ./native-deploy.sh start"
+ssh user@server1 "cd single-deploy && ./native-deploy.sh install && cd ~/nockchain && ./start-miner.sh"
 ```
 
 ## 📊 监控和维护
@@ -438,7 +435,7 @@ nano simple-snapshot-solution.sh
 ### 节点管理
 ```bash
 # 启动挖矿
-./native-deploy.sh start
+cd ~/nockchain && ./start-miner.sh
 
 # 停止挖矿
 ./native-deploy.sh stop
