@@ -52,14 +52,14 @@ sudo systemctl start nockchain-miner
 
 ### 第七步：监控挖矿状态
 ```bash
-# 查看实时状态
-./native-monitor.sh monitor
+# 查看节点状态
+cd ~/nockchain && ./check-status.sh
 
-# 查看简要状态
-./native-monitor.sh status
+# 查看详细状态
+./native-deploy.sh status
 
 # 查看日志
-./native-monitor.sh logs
+./native-deploy.sh logs
 
 # 检查挖矿活动
 grep "mining-on" ~/nockchain/logs/miner-*.log
@@ -87,8 +87,8 @@ grep "block.*added to validated blocks" ~/nockchain/logs/miner-*.log | tail -5
 
 | 脚本文件 | 功能 | 用途 |
 |---------|------|------|
-| `native-deploy.sh` | 部署和管理 | 安装、启动、停止、状态检查 |
-| `native-monitor.sh` | 监控工具 | 实时监控、健康检查、日志分析 |
+| `native-deploy.sh` | 部署和管理 | 安装、启动、停止、状态检查、日志查看 |
+| `check-status.sh` | 状态监控 | 快速查看节点运行状态和系统资源 |
 | `simple-snapshot-solution.sh` | 快照管理 | 上传/下载快照，加速同步 |
 | `resource-monitor.sh` | 系统监控 | CPU、内存、磁盘使用情况 |
 
@@ -160,14 +160,13 @@ MINIMAL_LOG_FORMAT=true
 | `service` | 创建服务 | 创建systemd系统服务 |
 | `logs` | 查看日志 | 查看日志或进入screen会话 |
 
-### native-monitor.sh 命令
-| 命令 | 功能 | 说明 |
-|------|------|------|
-| `monitor` | 实时监控 | 显示实时的挖矿状态和系统信息 |
-| `status` | 快速状态 | 显示节点运行状态摘要 |
-| `health` | 健康检查 | 全面的系统健康检查 |
-| `logs` | 日志查看 | 查看和分析日志文件 |
-| `report` | 生成报告 | 生成详细的系统报告 |
+### check-status.sh 功能
+| 功能 | 说明 |
+|------|------|
+| 进程检查 | 检查挖矿节点和普通节点运行状态 |
+| 资源监控 | 显示CPU、内存、磁盘使用情况 |
+| 网络状态 | 显示P2P连接数 |
+| 日志预览 | 显示最新的挖矿日志 |
 
 ### simple-snapshot-solution.sh 命令
 | 命令 | 功能 | 说明 |
@@ -353,9 +352,9 @@ cd ~/nockchain && ./start-miner.sh
 如果遇到问题，可以：
 
 1. 查看本文档的故障排除部分
-2. 运行健康检查：`./native-monitor.sh health`
-3. 生成详细报告：`./native-monitor.sh report`
-4. 查看系统日志：`./native-monitor.sh logs`
+2. 检查节点状态：`cd ~/nockchain && ./check-status.sh`
+3. 查看详细日志：`./native-deploy.sh logs`
+4. 清理并重启：`./native-deploy.sh cleanup && ./start-miner.sh`
 
 **祝您挖矿愉快！** 🚀⛏️
 
@@ -365,7 +364,7 @@ cd ~/nockchain && ./start-miner.sh
 cd ~/nockchain && ./start-miner.sh
 
 # 6. 监控状态
-./native-monitor.sh status
+cd ~/nockchain && ./check-status.sh
 ```
 
 ### 多节点部署（2-10个节点）
@@ -391,16 +390,17 @@ ssh user@server1 "cd single-deploy && ./native-deploy.sh install && cd ~/nockcha
 ### 基础监控
 ```bash
 # 查看节点状态
-./native-monitor.sh status
+cd ~/nockchain && ./check-status.sh
 
-# 实时监控
-./native-monitor.sh monitor
+# 查看详细状态
+./native-deploy.sh status
 
-# 健康检查
-./native-monitor.sh health
+# 查看日志
+./native-deploy.sh logs
 
-# 生成报告
-./native-monitor.sh report
+# 清理并重启
+./native-deploy.sh cleanup
+cd ~/nockchain && ./start-miner.sh
 ```
 
 ### 资源监控
@@ -538,8 +538,7 @@ RUST_LOG=error  # 高性能模式
 ```bash
 # 查看脚本帮助
 ./native-deploy.sh help
-./native-monitor.sh help
-./key-management.sh help
+cd ~/nockchain && ./check-status.sh
 ./resource-monitor.sh help
 ./simple-snapshot-solution.sh help
 ```

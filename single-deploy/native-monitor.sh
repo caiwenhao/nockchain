@@ -5,10 +5,24 @@
 
 set -e
 
-# 配置
-INSTALL_DIR="$HOME/nockchain"
-LOG_DIR="$INSTALL_DIR/logs"
-REPORT_DIR="$INSTALL_DIR/reports"
+# 配置 - 动态检测安装目录
+# 检测系统和用户
+check_system() {
+    # 检测用户和设置安装目录
+    if [ "$USER" = "root" ] || [ "$EUID" -eq 0 ]; then
+        INSTALL_DIR="/opt/nockchain"
+        SERVICE_USER="root"
+    else
+        INSTALL_DIR="$HOME/nockchain"
+        SERVICE_USER="$USER"
+    fi
+
+    LOG_DIR="$INSTALL_DIR/logs"
+    REPORT_DIR="$INSTALL_DIR/reports"
+}
+
+# 初始化系统检测
+check_system
 
 # 颜色输出
 RED='\033[0;31m'
@@ -25,12 +39,38 @@ info() { echo -e "${BLUE}[$(date +'%H:%M:%S')] INFO:${NC} $1"; }
 
 # 检查安装目录
 check_install_dir() {
+    # 如果当前检测的目录不存在，尝试其他可能的位置
     if [ ! -d "$INSTALL_DIR" ]; then
-        error "找不到安装目录: $INSTALL_DIR"
-        error "请先运行部署脚本进行安装"
-        exit 1
+        warn "检测的安装目录不存在: $INSTALL_DIR"
+
+        # 尝试其他可能的安装目录
+        local possible_dirs=(
+            "/opt/nockchain"
+            "$HOME/nockchain"
+            "/root/nockchain"
+        )
+
+        local found_dir=""
+        for dir in "${possible_dirs[@]}"; do
+            if [ -d "$dir" ] && [ -f "$dir/Makefile" ]; then
+                found_dir="$dir"
+                break
+            fi
+        done
+
+        if [ -n "$found_dir" ]; then
+            warn "找到 Nockchain 安装在: $found_dir"
+            INSTALL_DIR="$found_dir"
+            LOG_DIR="$INSTALL_DIR/logs"
+            REPORT_DIR="$INSTALL_DIR/reports"
+        else
+            error "找不到 Nockchain 安装目录"
+            error "请先运行部署脚本进行安装"
+            info "尝试运行: ./native-deploy.sh install"
+            exit 1
+        fi
     fi
-    
+
     cd "$INSTALL_DIR"
 }
 

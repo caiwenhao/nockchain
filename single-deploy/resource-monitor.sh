@@ -5,10 +5,47 @@
 
 set -e
 
-# 配置
-DATA_DIR="$HOME/nockchain/.data.nockchain"
-LOG_DIR="$HOME/nockchain/logs"
-MONITOR_LOG="$HOME/nockchain-resource-monitor.log"
+# 配置 - 动态检测安装目录
+# 检测系统和用户
+detect_install_dir() {
+    # 检测用户和设置安装目录
+    if [ "$USER" = "root" ] || [ "$EUID" -eq 0 ]; then
+        INSTALL_DIR="/opt/nockchain"
+    else
+        INSTALL_DIR="$HOME/nockchain"
+    fi
+
+    # 如果检测的目录不存在，尝试其他可能的位置
+    if [ ! -d "$INSTALL_DIR" ]; then
+        local possible_dirs=(
+            "/opt/nockchain"
+            "$HOME/nockchain"
+            "/root/nockchain"
+        )
+
+        local found_dir=""
+        for dir in "${possible_dirs[@]}"; do
+            if [ -d "$dir" ] && [ -d "$dir/.data.nockchain" ]; then
+                found_dir="$dir"
+                break
+            fi
+        done
+
+        if [ -n "$found_dir" ]; then
+            INSTALL_DIR="$found_dir"
+        else
+            echo "警告: 找不到 Nockchain 安装目录，使用默认路径"
+            INSTALL_DIR="$HOME/nockchain"
+        fi
+    fi
+
+    DATA_DIR="$INSTALL_DIR/.data.nockchain"
+    LOG_DIR="$INSTALL_DIR/logs"
+    MONITOR_LOG="$INSTALL_DIR/resource-monitor.log"
+}
+
+# 初始化目录检测
+detect_install_dir
 
 # 颜色输出
 RED='\033[0;31m'

@@ -526,7 +526,19 @@ else
     echo "✗ 挖矿节点: 未运行"
 fi
 
-if pgrep -f "nockchain" | grep -v "nockchain.*--mine" > /dev/null; then
+# 检查普通节点（不包含 --mine 参数的 nockchain 进程）
+nockchain_pids=$(pgrep -f "nockchain" 2>/dev/null || echo "")
+mining_pids=$(pgrep -f "nockchain.*--mine" 2>/dev/null || echo "")
+
+if [ -n "$nockchain_pids" ] && [ -n "$mining_pids" ]; then
+    # 有挖矿进程，检查是否还有其他 nockchain 进程
+    other_pids=$(echo "$nockchain_pids" | grep -v "$mining_pids" 2>/dev/null || echo "")
+    if [ -n "$other_pids" ]; then
+        echo "✓ 普通节点: 运行中"
+    else
+        echo "✗ 普通节点: 未运行"
+    fi
+elif [ -n "$nockchain_pids" ] && [ -z "$mining_pids" ]; then
     echo "✓ 普通节点: 运行中"
 else
     echo "✗ 普通节点: 未运行"
@@ -544,8 +556,14 @@ echo "P2P 连接数: $(netstat -an 2>/dev/null | grep :4001 | wc -l)"
 
 echo ""
 echo "=== 最新日志 (最近5行) ==="
-if [ -f logs/miner-*.log ]; then
-    tail -5 logs/miner-*.log | tail -5
+if ls logs/miner-*.log 1> /dev/null 2>&1; then
+    latest_log=$(ls -t logs/miner-*.log 2>/dev/null | head -1)
+    if [ -n "$latest_log" ]; then
+        echo "文件: $latest_log"
+        tail -5 "$latest_log"
+    else
+        echo "未找到日志文件"
+    fi
 else
     echo "未找到日志文件"
 fi

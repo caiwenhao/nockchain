@@ -11,7 +11,45 @@ VOLCANO_ENDPOINT="https://tos-s3-cn-beijing.volces.com"  # 火山云对象存储
 VOLCANO_BUCKET="nockchain-snapshots"                     # 存储桶名称
 VOLCANO_ACCESS_KEY=""                                    # 访问密钥
 VOLCANO_SECRET_KEY=""                                    # 密钥
-NOCKCHAIN_DATA_DIR="$HOME/nockchain/.data.nockchain"    # Nockchain数据目录
+
+# 动态检测 Nockchain 数据目录
+detect_nockchain_dir() {
+    # 检测用户和设置安装目录
+    if [ "$USER" = "root" ] || [ "$EUID" -eq 0 ]; then
+        INSTALL_DIR="/opt/nockchain"
+    else
+        INSTALL_DIR="$HOME/nockchain"
+    fi
+
+    # 如果检测的目录不存在，尝试其他可能的位置
+    if [ ! -d "$INSTALL_DIR" ]; then
+        local possible_dirs=(
+            "/opt/nockchain"
+            "$HOME/nockchain"
+            "/root/nockchain"
+        )
+
+        local found_dir=""
+        for dir in "${possible_dirs[@]}"; do
+            if [ -d "$dir" ] && [ -d "$dir/.data.nockchain" ]; then
+                found_dir="$dir"
+                break
+            fi
+        done
+
+        if [ -n "$found_dir" ]; then
+            INSTALL_DIR="$found_dir"
+        else
+            warn "找不到 Nockchain 安装目录，使用默认路径"
+            INSTALL_DIR="$HOME/nockchain"
+        fi
+    fi
+
+    NOCKCHAIN_DATA_DIR="$INSTALL_DIR/.data.nockchain"
+}
+
+# 初始化目录检测
+detect_nockchain_dir
 
 # 颜色输出
 RED='\033[0;31m'
