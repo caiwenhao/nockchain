@@ -126,6 +126,52 @@ install_rust() {
     log "Rust 安装完成"
 }
 
+# 快速设置项目（跳过编译）
+setup_project_skip_build() {
+    log "快速设置项目目录（跳过编译）..."
+
+    # 检查是否已有安装目录
+    if [ -d "$INSTALL_DIR" ]; then
+        if [ -f "$INSTALL_DIR/Makefile" ] && [ -f "$INSTALL_DIR/Cargo.toml" ]; then
+            log "检测到已存在的项目目录: $INSTALL_DIR"
+            cd "$INSTALL_DIR"
+            return
+        else
+            warn "安装目录存在但不包含项目文件，将重新设置"
+            rm -rf "$INSTALL_DIR"
+        fi
+    fi
+
+    # 获取脚本所在目录的上级目录（项目根目录）
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+    # 检查是否在项目目录中运行脚本
+    if [ -f "$PROJECT_ROOT/Makefile" ] && [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
+        log "从项目源码复制必要文件: $PROJECT_ROOT"
+
+        # 创建安装目录
+        mkdir -p "$INSTALL_DIR"
+
+        # 只复制必要的文件，跳过源码
+        cp "$PROJECT_ROOT/.env_example" "$INSTALL_DIR/" 2>/dev/null || true
+        cp "$PROJECT_ROOT/Makefile" "$INSTALL_DIR/" 2>/dev/null || true
+        cp "$PROJECT_ROOT/Cargo.toml" "$INSTALL_DIR/" 2>/dev/null || true
+
+        # 创建必要的目录
+        mkdir -p "$INSTALL_DIR/logs"
+        mkdir -p "$INSTALL_DIR/.data.nockchain"
+
+        cd "$INSTALL_DIR"
+        log "快速项目设置完成"
+        return
+    fi
+
+    error "未找到项目源码，无法进行快速设置"
+    error "请确保在项目目录中运行此脚本"
+    exit 1
+}
+
 # 克隆或更新项目
 setup_project() {
     log "设置项目目录..."
@@ -555,6 +601,26 @@ main() {
             info "2. nano $INSTALL_DIR/.env  # 编辑配置文件"
             info "3. $0 start     # 启动挖矿服务"
             ;;
+        install-skip-build)
+            log "快速安装模式 (跳过编译)"
+            check_system
+            # 跳过 install_dependencies 和 install_rust（假设已安装）
+            setup_project_skip_build
+            configure_firewall
+            create_scripts
+            info "快速安装完成！接下来请运行:"
+            info "1. $0 keygen    # 生成挖矿密钥"
+            info "2. nano $INSTALL_DIR/.env  # 编辑配置文件"
+            info "3. $0 start     # 启动挖矿服务"
+            warn "注意: 此模式假设 Rust 环境和 nockchain 二进制文件已存在"
+            ;;
+        update-scripts)
+            log "更新附属脚本"
+            check_system
+            create_scripts
+            info "脚本更新完成！"
+            info "新的启动脚本已生成到: $INSTALL_DIR"
+            ;;
         keygen)
             check_system  # 确保 INSTALL_DIR 被正确设置
             generate_keys
@@ -587,17 +653,29 @@ main() {
                 ls -la logs/
             fi
             ;;
-        *)
-            echo "用法: $0 [install|keygen|start|stop|status|service|logs]"
+        help|*)
+            echo "用法: $0 [命令]"
             echo ""
-            echo "命令说明:"
-            echo "  install - 安装和配置环境 (默认)"
-            echo "  keygen  - 生成挖矿密钥"
-            echo "  start   - 启动挖矿服务"
-            echo "  stop    - 停止挖矿服务"
-            echo "  status  - 查看服务状态"
-            echo "  service - 创建系统服务"
-            echo "  logs    - 查看日志"
+            echo "安装命令:"
+            echo "  install           - 完整安装和配置环境 (默认)"
+            echo "  install-skip-build - 快速安装 (跳过编译，适用于已编译环境)"
+            echo "  update-scripts    - 仅更新附属脚本 (不重新编译)"
+            echo ""
+            echo "管理命令:"
+            echo "  keygen   - 生成挖矿密钥"
+            echo "  start    - 启动挖矿服务"
+            echo "  stop     - 停止挖矿服务"
+            echo "  status   - 查看服务状态"
+            echo "  service  - 创建系统服务"
+            echo "  logs     - 查看日志"
+            echo "  help     - 显示此帮助信息"
+            echo ""
+            echo "使用场景:"
+            echo "  首次部署:     $0 install"
+            echo "  快速部署:     $0 install-skip-build"
+            echo "  更新脚本:     $0 update-scripts"
+            echo "  生成密钥:     $0 keygen"
+            echo "  启动挖矿:     $0 start"
             exit 1
             ;;
     esac
