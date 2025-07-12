@@ -404,8 +404,30 @@ echo "挖矿公钥: $MINING_PUBKEY"
 echo "日志级别: $RUST_LOG"
 echo "================================"
 
-# 创建日志目录
+# 创建必要目录
 mkdir -p logs
+mkdir -p .socket
+
+# 预清理：检查并停止已运行的进程
+if pgrep -f "nockchain.*--mine" > /dev/null; then
+    echo "检测到已运行的挖矿进程，正在停止..."
+    pkill -f "nockchain.*--mine" 2>/dev/null
+    sleep 2
+fi
+
+# 清理 socket 文件
+if [ -d ".socket" ]; then
+    echo "清理旧的 socket 文件..."
+    rm -f .socket/*.sock
+fi
+
+# 清理可能的锁文件
+if [ -f ".data.nockchain/LOCK" ]; then
+    echo "清理数据库锁文件..."
+    rm -f .data.nockchain/LOCK
+fi
+
+echo "预清理完成，开始启动挖矿..."
 
 # 启动挖矿
 # 尝试多个可能的 nockchain 路径
@@ -441,8 +463,30 @@ echo "启动 Nockchain 普通节点..."
 echo "日志级别: $RUST_LOG"
 echo "================================"
 
-# 创建日志目录
+# 创建必要目录
 mkdir -p logs
+mkdir -p .socket
+
+# 预清理：检查并停止已运行的进程
+if pgrep -f "nockchain" > /dev/null; then
+    echo "检测到已运行的 nockchain 进程，正在停止..."
+    pkill -f "nockchain" 2>/dev/null
+    sleep 2
+fi
+
+# 清理 socket 文件
+if [ -d ".socket" ]; then
+    echo "清理旧的 socket 文件..."
+    rm -f .socket/*.sock
+fi
+
+# 清理可能的锁文件
+if [ -f ".data.nockchain/LOCK" ]; then
+    echo "清理数据库锁文件..."
+    rm -f .data.nockchain/LOCK
+fi
+
+echo "预清理完成，开始启动节点..."
 
 # 启动节点
 # 尝试多个可能的 nockchain 路径
@@ -550,6 +594,36 @@ EOF
 
 
 
+# 清理 Nockchain 相关文件
+cleanup_nockchain() {
+    log "清理 Nockchain 相关文件..."
+
+    cd "$INSTALL_DIR"
+
+    # 停止所有相关进程
+    pkill -f "nockchain" 2>/dev/null || true
+    sleep 2
+
+    # 清理 socket 文件
+    if [ -d ".socket" ]; then
+        log "清理 socket 文件..."
+        rm -f .socket/*.sock
+        log "Socket 文件已清理"
+    fi
+
+    # 清理锁文件
+    if [ -f ".data.nockchain/LOCK" ]; then
+        log "清理数据库锁文件..."
+        rm -f .data.nockchain/LOCK
+        log "锁文件已清理"
+    fi
+
+    # 清理临时文件
+    rm -f .data.nockchain/*.tmp 2>/dev/null || true
+
+    log "清理完成"
+}
+
 # 显示状态
 show_status() {
     cd "$INSTALL_DIR" 2>/dev/null || {
@@ -609,13 +683,32 @@ main() {
             check_system  # 确保 INSTALL_DIR 被正确设置
             log "停止 Nockchain 挖矿节点..."
 
+            cd "$INSTALL_DIR"
+
             # 停止 screen 会话
             screen -S nockchain-miner -X quit 2>/dev/null
 
             # 强制停止进程
             pkill -f "nockchain.*--mine" 2>/dev/null
+            pkill -f "nockchain" 2>/dev/null
 
-            log "挖矿节点已停止"
+            # 等待进程完全停止
+            sleep 2
+
+            # 清理 socket 文件
+            if [ -d ".socket" ]; then
+                log "清理 socket 文件..."
+                rm -f .socket/*.sock
+                log "Socket 文件已清理"
+            fi
+
+            # 清理可能的锁文件
+            if [ -f ".data.nockchain/LOCK" ]; then
+                log "清理数据库锁文件..."
+                rm -f .data.nockchain/LOCK
+            fi
+
+            log "挖矿节点已停止并清理完成"
             ;;
         status)
             check_system  # 确保 INSTALL_DIR 被正确设置
@@ -647,6 +740,10 @@ main() {
                 echo "日志目录为空或不存在"
             fi
             ;;
+        cleanup)
+            check_system  # 确保 INSTALL_DIR 被正确设置
+            cleanup_nockchain
+            ;;
         help|*)
             echo "用法: $0 [命令]"
             echo ""
@@ -658,6 +755,7 @@ main() {
             echo "管理命令:"
             echo "  keygen   - 生成挖矿密钥"
             echo "  stop     - 停止挖矿服务"
+            echo "  cleanup  - 清理 socket 文件和锁文件"
             echo "  status   - 查看服务状态"
             echo "  service  - 创建系统服务"
             echo "  logs     - 查看日志"
