@@ -432,42 +432,7 @@ mkdir -p logs
 nockchain 2>&1 | tee logs/node-$(date +%Y%m%d-%H%M%S).log
 EOF
 
-    # 创建后台启动脚本
-    cat > start-miner-daemon.sh << 'EOF'
-#!/bin/bash
 
-cd "$(dirname "$0")"
-
-# 检查是否已经在运行
-if pgrep -f "nockchain.*--mine" > /dev/null; then
-    echo "挖矿节点已在运行中"
-    exit 1
-fi
-
-echo "在后台启动挖矿节点..."
-
-# 使用 screen 在后台运行
-screen -dmS nockchain-miner bash -c './start-miner.sh'
-
-echo "挖矿节点已在后台启动"
-echo "查看状态: screen -r nockchain-miner"
-echo "停止挖矿: screen -S nockchain-miner -X quit"
-EOF
-
-    # 创建停止脚本
-    cat > stop-miner.sh << 'EOF'
-#!/bin/bash
-
-echo "停止 Nockchain 挖矿节点..."
-
-# 停止 screen 会话
-screen -S nockchain-miner -X quit 2>/dev/null
-
-# 强制停止进程
-pkill -f "nockchain.*--mine" 2>/dev/null
-
-echo "挖矿节点已停止"
-EOF
 
     # 创建状态检查脚本
     cat > check-status.sh << 'EOF'
@@ -511,7 +476,7 @@ fi
 EOF
 
     # 设置执行权限
-    chmod +x start-miner.sh start-node.sh start-miner-daemon.sh stop-miner.sh check-status.sh
+    chmod +x start-miner.sh start-node.sh check-status.sh
     
     log "启动脚本创建完成"
 }
@@ -608,8 +573,15 @@ main() {
 
         stop)
             check_system  # 确保 INSTALL_DIR 被正确设置
-            cd "$INSTALL_DIR"
-            ./stop-miner.sh
+            log "停止 Nockchain 挖矿节点..."
+
+            # 停止 screen 会话
+            screen -S nockchain-miner -X quit 2>/dev/null
+
+            # 强制停止进程
+            pkill -f "nockchain.*--mine" 2>/dev/null
+
+            log "挖矿节点已停止"
             ;;
         status)
             check_system  # 确保 INSTALL_DIR 被正确设置
@@ -622,12 +594,23 @@ main() {
         logs)
             check_system  # 确保 INSTALL_DIR 被正确设置
             cd "$INSTALL_DIR"
-            if screen -list | grep -q nockchain-miner; then
-                screen -r nockchain-miner
-            else
-                echo "挖矿节点未在后台运行"
-                echo "查看历史日志:"
+            echo "查看 Nockchain 日志文件:"
+            echo ""
+            if [ -d "logs" ] && [ "$(ls -A logs/)" ]; then
+                echo "可用的日志文件:"
                 ls -la logs/
+                echo ""
+                echo "查看最新挖矿日志:"
+                latest_log=$(ls -t logs/miner-*.log 2>/dev/null | head -1)
+                if [ -n "$latest_log" ]; then
+                    echo "文件: $latest_log"
+                    echo "最近20行:"
+                    tail -20 "$latest_log"
+                else
+                    echo "未找到挖矿日志文件"
+                fi
+            else
+                echo "日志目录为空或不存在"
             fi
             ;;
         help|*)
